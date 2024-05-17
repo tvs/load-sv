@@ -39,6 +39,8 @@ type LoadOptions struct {
 	Cleanup         bool
 }
 
+// TODO(tvs): This probably shouldn't live here and should live in the cmd
+// structure
 func (o *LoadOptions) BindFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&o.Container, "container", "c", "", "Container tarball to load")
 	cobra.MarkFlagRequired(flags, "container")

@@ -6,18 +6,9 @@ package version
 import (
 	"fmt"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/spf13/cobra"
-)
-
-// Variables set at build time using ldflags
-var (
-	// During build and release this will be set to the release tag
-	version = "v0.0.0-dev"
-	// The latest git commit SHA
-	revision = "HEAD"
-	// Build time in ISO8601 format, output of $(date -u +'%Y-%m-%dT%H:%M:%SZ')
-	buildTime string
 )
 
 type Provenance struct {
@@ -25,8 +16,6 @@ type Provenance struct {
 	Version string `json:"version,omitempty"`
 	// Revision is a git commit.
 	Revision string `json:"revision,omitempty"`
-	//BuildTime is the time of the build.
-	BuildTime string `json:"buildTime,omitempty"`
 	// GoOs holds the name of the OS the binary was built on.
 	GoOs string `json:"goOs,omitempty"`
 	// GoArch holds the name of the architecture the binary was built on.
@@ -36,10 +25,18 @@ type Provenance struct {
 }
 
 func GetProvenance() Provenance {
+	b, _ := debug.ReadBuildInfo()
+
+	revision := "unknown"
+	for _, setting := range b.Settings {
+		if setting.Key == "vcs.revision" {
+			revision = setting.Value
+			break
+		}
+	}
 	return Provenance{
-		Version:   version,
+		Version:   b.Main.Version,
 		Revision:  revision,
-		BuildTime: buildTime,
 		GoOs:      runtime.GOOS,
 		GoArch:    runtime.GOARCH,
 		GoVersion: runtime.Version(),

@@ -36,7 +36,7 @@ vet: ## Run go vet against code.
 
 .PHONY: build
 build: clean fmt vet ## Build binary.
-	go build -v --ldflags="-s -X github.com/tvs/load-sv/cmd/version.version=$(VERSION) -X github.com/tvs/load-sv/cmd/version.revision=$(REVISION) -X github.com/tvs/load-sv/cmd/version.buildTime=$(TIMESTAMP)" -o bin/load-sv 
+	go build -v -o bin/load-sv 
 
 .PHONY: clean
 clean: # Clean binary directory
