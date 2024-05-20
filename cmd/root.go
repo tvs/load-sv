@@ -14,9 +14,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/tvs/load-sv/cmd/load"
-	"github.com/tvs/load-sv/cmd/version"
-	"github.com/tvs/load-sv/pkg/util/log"
+	"github.com/tvs/ultravisor/cmd/load"
+	"github.com/tvs/ultravisor/cmd/version"
+	"github.com/tvs/ultravisor/pkg/util/log"
 )
 
 var (
@@ -32,7 +32,7 @@ func BindFlags(flags *pflag.FlagSet) {
 // NewCommand represents the base command when called without any subcommands
 func NewCommand() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "load-sv",
+		Use:   "ultravisor",
 		Short: "A brief description of your application",
 		Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:

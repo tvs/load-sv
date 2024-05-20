@@ -7,7 +7,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/tvs/load-sv/cmd"
+	"github.com/tvs/ultravisor/cmd"
 )
 
 func main() {

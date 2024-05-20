@@ -1,4 +1,4 @@
-module github.com/tvs/load-sv
+module github.com/tvs/ultravisor
 
 go 1.21.8
 

@@ -36,7 +36,7 @@ vet: ## Run go vet against code.
 
 .PHONY: build
 build: clean fmt vet ## Build binary.
-	go build -v -o bin/load-sv 
+	go build -v -o bin/ultravisor 
 
 .PHONY: clean
 clean: # Clean binary directory

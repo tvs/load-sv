@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	pload "github.com/tvs/load-sv/pkg/cmd/load"
-	"github.com/tvs/load-sv/pkg/util/log"
+	pload "github.com/tvs/ultravisor/pkg/cmd/load"
+	"github.com/tvs/ultravisor/pkg/util/log"
 )
 
 func BindFlags(o *pload.LoadOptions, flags *pflag.FlagSet) {
