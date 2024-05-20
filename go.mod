@@ -5,6 +5,8 @@ go 1.21.8
 require (
 	github.com/appleboy/easyssh-proxy v1.5.0
 	github.com/elliotchance/sshtunnel v1.6.1
+	github.com/lmittmann/tint v1.0.4
+	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vmware/govmomi v0.37.2

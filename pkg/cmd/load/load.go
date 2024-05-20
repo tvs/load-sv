@@ -3,6 +3,7 @@ package load
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -12,8 +13,6 @@ import (
 
 	"github.com/appleboy/easyssh-proxy"
 	"github.com/elliotchance/sshtunnel"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/session/cache"
 	"github.com/vmware/govmomi/view"
@@ -39,36 +38,7 @@ type LoadOptions struct {
 	Cleanup         bool
 }
 
-// TODO(tvs): This probably shouldn't live here and should live in the cmd
-// structure
-func (o *LoadOptions) BindFlags(flags *pflag.FlagSet) {
-	flags.StringVarP(&o.Container, "container", "c", "", "Container tarball to load")
-	cobra.MarkFlagRequired(flags, "container")
-
-	// vCenter SSH Setup
-	flags.StringVar(&o.Server, "vcenter.server", "", "Address for the vCenter server that contains the target Supervisor Cluster")
-	cobra.MarkFlagRequired(flags, "vcenter.server")
-	flags.StringVar(&o.User, "vcenter.user", "", "SSH user for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.user")
-	flags.StringVar(&o.Password, "vcenter.password", "", "SSH password for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.password")
-
-	// vCenter SSO Setup
-	flags.StringVar(&o.SSOUser, "vcenter.sso_user", "", "SSO User for vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.sso_user")
-	flags.StringVar(&o.SSOPassword, "vcenter.sso_password", "", "SSO password for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.sso_password")
-
-	// Optional jumpbox setup
-	flags.StringVar(&o.Jumpbox, "jumpbox.server", "", "Optional jumpbox server")
-	flags.StringVar(&o.JumpboxUser, "jumpbox.user", "", "Optional jumpbox user. Required if using a jumpbox.")
-	flags.StringVar(&o.JumpboxPassword, "jumpbox.password", "", "Optional jumpbox password. Required if using a jumpbox.")
-
-	// General options
-	flags.BoolVar(&o.Cleanup, "cleanup", true, "Clean up container files after load")
-}
-
-func (o *LoadOptions) Validate(c *cobra.Command, args []string) error {
+func (o *LoadOptions) Validate() error {
 	if o.Jumpbox != "" {
 		if o.JumpboxUser == "" || o.JumpboxPassword == "" {
 			return fmt.Errorf("If using a jumpbox, both the 'jumpbox.user' and 'jumpbox.password' must be set")
@@ -78,10 +48,37 @@ func (o *LoadOptions) Validate(c *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *LoadOptions) Run(c *cobra.Command) error {
+func (o *LoadOptions) Run(ctx context.Context, l *slog.Logger) error {
+	// If we have a jumpbox, we need to proxy our VMOMI requests to the vc
+	var tunnel *sshtunnel.SSHTunnel
+
+	if o.HasJumpbox() {
+		tunnel = o.getTunnel()
+		go tunnel.Start()
+		l.Debug("Waiting for the tunnel to bind...")
+		// Need to wait a moment to let the bind happen
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	l.Info("Fetching the control plane addresses")
+	// Do the cheap stuff first - get the control plane addresses
+	addrs, err := o.getSupervisorControlPlaneAddresses(tunnel)
+	if err != nil {
+		return fmt.Errorf("Unable to get Supervisor Control Plane VMs: %w", err)
+	}
+
+	l.Info("Retrieved Supervisor Control Plane Addresses", "addresses", addrs)
+
+	// Close our tunnel now that we're done
+	if tunnel != nil {
+		l.Debug("Closing the tunnel...")
+		go tunnel.Close()
+	}
+
 	// Set up jumpbox as an SSH proxy
 	var proxy easyssh.DefaultConfig
-	if o.Jumpbox != "" {
+	if o.HasJumpbox() {
+		l.Debug("Setting up the jumpbox...")
 		proxy = easyssh.DefaultConfig{
 			User:     o.JumpboxUser,
 			Server:   o.Jumpbox,
@@ -99,43 +96,23 @@ func (o *LoadOptions) Run(c *cobra.Command) error {
 		Proxy:    proxy,
 	}
 
-	// If we have a jumpbox, we need to proxy our VMOMI requests to the vc
-	var tunnel *sshtunnel.SSHTunnel
-	if o.Jumpbox != "" {
-		tunnel = o.getTunnel()
-		go tunnel.Start()
-		// Need to wait a moment to let the bind happen
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Do the cheap stuff first - get the control plane addresses
-	addrs, err := o.getSupervisorControlPlaneAddresses(tunnel)
-	if err != nil {
-		return fmt.Errorf("Unable to get Supervisor Control Plane VMs: %w", err)
-	}
-
-	fmt.Println(addrs)
-
-	// Close our tunnel now that we're done
-	if tunnel != nil {
-		go tunnel.Close()
-	}
-
 	// Get our Supervisor CP VM Password
+	l.Info("Retrieving Supervisor Control Plane VM Password")
 	stdout, _, _, err := ssh.Run("/usr/lib/vmware-wcp/decryptK8Pwd.py")
 	if err != nil {
 		return fmt.Errorf("Unable to retrieve Supervisor Cluster password: %w", err)
 	}
-	fmt.Println(stdout)
+	l.Debug(stdout)
 	supervisorPassword, err := getSupervisorPassword(stdout)
 	if err != nil {
 		return fmt.Errorf("Unable to retrieve Supervisor Cluster password: %w", err)
 	}
-	fmt.Println("Supervisor Password: ", supervisorPassword)
+	l.Debug("Retrieved Supervisor Control Plane VM Password", "password", supervisorPassword)
 
 	// On to the expensive stuff
 
 	// Start copying the container file over to the vCenter server
+	l.Info("Copying container to VC", "container", o.Container, "vc", o.Server)
 	containerPath := filepath.Join("/tmp", filepath.Base(o.Container))
 	err = ssh.Scp(o.Container, containerPath)
 	if err != nil {
@@ -155,25 +132,28 @@ func (o *LoadOptions) Run(c *cobra.Command) error {
 	// Now SCP everything to the CP VMs
 	scpCmdArgs := "-q -o PubkeyAuthentication=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
 	for _, addr := range addrs {
+		l.Info("Copying container to Supervisor Control Plane VM", "container", o.Container, "vm", addr)
 		scpCmd := fmt.Sprintf(`sshpass -p %q scp %s "%s" "%s@%s:%s"`, supervisorPassword, scpCmdArgs, containerPath, "root", addr, containerPath)
-		fmt.Printf("SCP: %s\n", scpCmd)
-		stdout, stderr, _, err := ssh.Run(scpCmd)
+		_, _, _, err := ssh.Run(scpCmd)
 		if err != nil {
-			fmt.Printf("Stdout: %s\nStderr: %s\n", stdout, stderr)
 			return fmt.Errorf("Unable to write container to Supervisor VM %s: %w", addr, err)
 		}
 
 		// Now load into the local registry
+		l.Info("Loading container into Supervisor Control Plane's containerd registry", "container", o.Container, "vm", addr)
 		ctrCmd := fmt.Sprintf(`sshpass -p %q ssh %s "%s@%s" "ctr -n k8s.io images import %s"`, supervisorPassword, scpCmdArgs, "root", addr, containerPath)
-		fmt.Printf("ctr: %s\n", ctrCmd)
-		stdout, stderr, _, err = ssh.Run(ctrCmd)
+		_, _, _, err = ssh.Run(ctrCmd)
 		if err != nil {
-			fmt.Printf("Stdout: %s\nStderr: %s\n", stdout, stderr)
 			return fmt.Errorf("Unable to write container to Supervisor VM %s: %w", addr, err)
 		}
 	}
 
 	return nil
+}
+
+// HasJumpbox returns true if the Jumpbox is configured
+func (o *LoadOptions) HasJumpbox() bool {
+	return o.Jumpbox != ""
 }
 
 // TODO(tvs): Replace SSHTunnel lib
