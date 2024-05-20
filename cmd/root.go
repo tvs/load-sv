@@ -48,23 +48,26 @@ to quickly create a Cobra application.`,
 			}
 
 			level := slog.LevelInfo
+			addSource := false
 			if verbose {
 				level = slog.LevelDebug
+				addSource = true
 			}
 
 			var handler slog.Handler
-			switch output {
-			case "":
-				fallthrough
-			case "text":
+			switch {
+			case output == "", strings.EqualFold("text", output):
 				handler = tint.NewHandler(os.Stdout, &tint.Options{
-					Level:   level,
-					NoColor: !isatty.IsTerminal(os.Stdout.Fd()),
+					AddSource: addSource,
+					Level:     level,
+					NoColor:   !isatty.IsTerminal(os.Stdout.Fd()),
 				})
-			case "json":
+			case strings.EqualFold("json", output):
 				handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-					Level: level,
+					AddSource: addSource,
+					Level:     level,
 				})
+
 			}
 
 			logger := slog.New(handler)
