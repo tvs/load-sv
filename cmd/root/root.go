@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
+	"github.com/tvs/ultravisor/pkg/config"
 	"github.com/tvs/ultravisor/pkg/log"
 )
 
@@ -21,9 +22,12 @@ var rootCmd = &cobra.Command{
 	Long: `Developing software on the vSphere IaaS Control Plane can be difficult.
 Ultravisor aims to make a number of difficult or tedious tasks simple.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// TODO(tvs): Set up config management
+		if rootCmdArgs.Profile != "" {
+			config.SetProfile(rootCmdArgs.Profile)
+		}
 
-		configureLogger(cmd)
+		l := configureLogger(cmd)
+		l.Debug().Str("profile", config.CurrentProfile().Name).Msg("Using profile")
 
 		return nil
 	},
@@ -39,7 +43,7 @@ func Cmd() *cobra.Command {
 func Execute() error {
 	if err := rootCmd.Execute(); err != nil {
 		l := zerolog.Ctx(rootCmd.Context())
-		l.Error().Err(err).Msg("an error occurred during execution")
+		l.Error().Err(err).Msg("An error occurred during execution")
 		return err
 	}
 	return nil
@@ -58,7 +62,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&rootCmdArgs.Json, "json", rootCmdArgs.Json, "enable json log output")
 }
 
-func configureLogger(cmd *cobra.Command) {
+func configureLogger(cmd *cobra.Command) zerolog.Logger {
 	var w io.Writer
 
 	if rootCmdArgs.Json {
@@ -76,4 +80,6 @@ func configureLogger(cmd *cobra.Command) {
 	}
 
 	cmd.SetContext(l.WithContext(cmd.Context()))
+
+	return l
 }

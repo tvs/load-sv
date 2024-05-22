@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+var profile = Profile{Name: "default"}
+
+type Profile struct {
+	Name string
+}
+
+func SetProfile(name string) {
+	profile = Profile{Name: name}
+}
+
+func CurrentProfile() Profile { return profile }
+
 // Config is struct representing an application config.
 // This is functionally a profile that can be used when executing commands.
 type Config struct {
@@ -99,10 +111,21 @@ var (
 			return dir, nil
 		},
 	}
+
+	configDir = requiredDir{
+		dir: func() (string, error) {
+			dir, err := configBaseDir.Dir()
+			if err != nil {
+				return "", nil
+			}
+
+			return filepath.Join(dir, profile.Name), nil
+		},
+	}
 )
 
 func File() (string, error) {
-	base, err := configBaseDir.Dir()
+	base, err := configDir.Dir()
 	if err != nil {
 		return "", err
 	}

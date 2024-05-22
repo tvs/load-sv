@@ -40,3 +40,20 @@ func Load() (*config.Config, error) {
 
 	return LoadFrom(f)
 }
+
+// Save saves the config to the file defined by the profile
+// TODO(tvs): Use an embedded template with comments explaining
+// the config and ensure that when we save we persist the comments
+func Save(c *config.Config) error {
+	b, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("unable to marshal config to yaml: %w", err)
+	}
+
+	f, err := config.File()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve file path for profile: %w", err)
+	}
+
+	return os.WriteFile(f, b, 0644)
+}
