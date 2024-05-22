@@ -1,6 +1,7 @@
 package root
 
 import (
+	"context"
 	"io"
 	"os"
 
@@ -21,15 +22,13 @@ var rootCmd = &cobra.Command{
 	Short: "A collection of tools for working with the vSphere IaaS Control Plane",
 	Long: `Developing software on the vSphere IaaS Control Plane can be difficult.
 Ultravisor aims to make a number of difficult or tedious tasks simple.`,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if rootCmdArgs.Profile != "" {
 			config.SetProfile(rootCmdArgs.Profile)
 		}
 
 		l := configureLogger(cmd)
 		l.Debug().Str("profile", config.CurrentProfile().Name).Msg("Using profile")
-
-		return nil
 	},
 }
 
@@ -38,15 +37,25 @@ func Cmd() *cobra.Command {
 	return rootCmd
 }
 
-// Execute runs the root command. This is called by main.main() and ony
-// needs to be called once.
-func Execute() error {
-	if err := rootCmd.Execute(); err != nil {
+// Execute sets up logging, subcommands, and runs the root command. Errors are
+// emitted as logs, but otherwise swallowed and converted into error codes.
+// This is called by main.main() and ony needs to be called once.
+func Execute() int {
+	ctx := context.Background()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		l := zerolog.Ctx(rootCmd.Context())
 		l.Error().Err(err).Msg("An error occurred during execution")
-		return err
 	}
-	return nil
+
+	return exitCode
+}
+
+// TODO(tvs): Convert exit codes to type and consts
+var exitCode int = 0
+
+// SetExitCode sets the exit code to be thrown by the command or subcommands.
+func SetExitCode(c int) {
+	exitCode = c
 }
 
 // rootCmdArgs holds the flags defined for the root command
