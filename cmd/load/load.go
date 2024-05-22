@@ -1,69 +1,35 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package load
 
 import (
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 
-	pload "github.com/tvs/ultravisor/pkg/cmd/load"
-	"github.com/tvs/ultravisor/pkg/util/log"
+	"github.com/tvs/ultravisor/cmd/root"
+	"github.com/tvs/ultravisor/pkg/config/configmanager"
+	pload "github.com/tvs/ultravisor/pkg/load"
 )
 
-func BindFlags(o *pload.LoadOptions, flags *pflag.FlagSet) {
-	flags.StringVarP(&o.Container, "container", "c", "", "Container tarball to load")
-	cobra.MarkFlagRequired(flags, "container")
+var loadCmd = &cobra.Command{
+	Use:   "load [container]",
+	Short: "load a container into the vSphere IaaS Control Plane",
+	Long:  `loads a container into each of the vSphere IaaS Control Plane's control plane VMs`,
 
-	// vCenter SSH Setup
-	flags.StringVar(&o.Server, "vcenter.server", "", "Address for the vCenter server that contains the target Supervisor Cluster")
-	cobra.MarkFlagRequired(flags, "vcenter.server")
-	flags.StringVar(&o.User, "vcenter.user", "", "SSH user for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.user")
-	flags.StringVar(&o.Password, "vcenter.password", "", "SSH password for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.password")
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		l := zerolog.Ctx(cmd.Context())
+		container := args[0]
 
-	// vCenter SSO Setup
-	flags.StringVar(&o.SSOUser, "vcenter.sso_user", "", "SSO User for vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.sso_user")
-	flags.StringVar(&o.SSOPassword, "vcenter.sso_password", "", "SSO password for the vCenter server")
-	cobra.MarkFlagRequired(flags, "vcenter.sso_password")
+		cfg, err := configmanager.Load()
+		if err != nil {
+			return err
+		}
 
-	// Optional jumpbox setup
-	flags.StringVar(&o.Jumpbox, "jumpbox.server", "", "Optional jumpbox server")
-	flags.StringVar(&o.JumpboxUser, "jumpbox.user", "", "Optional jumpbox user. Required if using a jumpbox.")
-	flags.StringVar(&o.JumpboxPassword, "jumpbox.password", "", "Optional jumpbox password. Required if using a jumpbox.")
+		l.Debug().Any("cfg", cfg).Msg("Config loaded")
 
-	// General options
-	flags.BoolVar(&o.Cleanup, "cleanup", true, "Clean up container files after load")
+		return pload.Load(cmd.Context(), cfg, container)
+	},
 }
 
-// NewCommand represents the version command
-func NewCommand() *cobra.Command {
-	o := &pload.LoadOptions{}
-
-	c := &cobra.Command{
-		Use:   "load",
-		Short: "load a container into a vCenter Supervisor Cluster",
-		Long:  `loads a container into each of the vCenter Supervisor Cluster's control plane VMs`,
-
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := o.Validate(); err != nil {
-				return err
-			}
-
-			l := log.LoggerFromContext(cmd.Context())
-
-			if err := o.Run(cmd.Context(), l); err != nil {
-				l.Error("Unable to load image", "error", err)
-				return err
-			}
-
-			return nil
-		},
-	}
-
-	BindFlags(o, c.Flags())
-
-	return c
+func init() {
+	root.Cmd().AddCommand(loadCmd)
 }

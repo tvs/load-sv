@@ -1,6 +1,3 @@
-/*
-Copyright © 2024 NAME HERE <EMAIL ADDRESS>
-*/
 package version
 
 import (
@@ -9,9 +6,19 @@ import (
 	"runtime/debug"
 
 	"github.com/spf13/cobra"
+	"github.com/tvs/ultravisor/cmd/root"
 )
 
-type Provenance struct {
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Prints the version",
+	Long:  "Prints the version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("%+v\n", provenance())
+	},
+}
+
+type provenanceInfo struct {
 	// Version of the binary.
 	Version string `json:"version,omitempty"`
 	// Revision is a git commit.
@@ -24,7 +31,7 @@ type Provenance struct {
 	GoVersion string `json:"goVersion,omitempty"`
 }
 
-func GetProvenance() Provenance {
+func provenance() provenanceInfo {
 	b, _ := debug.ReadBuildInfo()
 
 	revision := "unknown"
@@ -34,7 +41,7 @@ func GetProvenance() Provenance {
 			break
 		}
 	}
-	return Provenance{
+	return provenanceInfo{
 		Version:   b.Main.Version,
 		Revision:  revision,
 		GoOs:      runtime.GOOS,
@@ -43,16 +50,6 @@ func GetProvenance() Provenance {
 	}
 }
 
-// NewCommand represents the version command
-func NewCommand() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "version",
-		Short: "Prints the version",
-		Long:  "Prints the version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("%+v\n", GetProvenance())
-		},
-	}
-
-	return c
+func init() {
+	root.Cmd().AddCommand(versionCmd)
 }

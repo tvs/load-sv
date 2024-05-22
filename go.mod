@@ -3,19 +3,17 @@ module github.com/tvs/ultravisor
 go 1.21.8
 
 require (
-	github.com/appleboy/easyssh-proxy v1.5.0
-	github.com/elliotchance/sshtunnel v1.6.1
-	github.com/lmittmann/tint v1.0.4
-	github.com/mattn/go-isatty v0.0.20
 	github.com/spf13/cobra v1.8.0
-	github.com/spf13/pflag v1.0.5
-	github.com/vmware/govmomi v0.37.2
-	golang.org/x/crypto v0.17.0
+	gopkg.in/yaml.v2 v2.2.2
 )
 
 require (
-	github.com/ScaleFT/sshkeys v1.2.0 // indirect
-	github.com/dchest/bcrypt_pbkdf v0.0.0-20150205184540-83f37f9c154a // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	github.com/kr/pretty v0.3.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/rs/zerolog v1.32.0 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	golang.org/x/sys v0.12.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
