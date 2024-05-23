@@ -2,6 +2,9 @@ package config
 
 import (
 	"time"
+
+	"github.com/tvs/ultravisor/pkg/util/duration"
+	"github.com/tvs/ultravisor/pkg/util/ptr"
 )
 
 var profile = Profile{Name: "default"}
@@ -52,22 +55,27 @@ type SSHConfig struct {
 	// Server is the address of the server to SSH to.
 	Server string `json:"server,omitempty" yaml:"server,omitempty"`
 	// Port is the port to utilize when SSHing. Defaults to 22.
-	Port string `json:"port,omitempty" yaml:"port,omitempty"`
+	Port *int `json:"port,omitempty" yaml:"port,omitempty"`
 	// Key takes an optional encrypted private key.
 	Key *string `json:"key,omitempty" yaml:"key,omitempty"`
 	// KeyPath takes an optional path to a private key on the local machine.
 	KeyPath *string `json:"keyPath,omitempty" yaml:"keyPath,omitempty"`
 	// Password takes a plaintext string of the user's password.
 	Password *string `json:"password,omitempty" yaml:"password,omitempty"`
-	// Timeout is timeout duration for SSH commands.
-	Timeout time.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	// Timeout is timeout duration for SSH commands. Defaults to 60 seconds. 0
+	// indicates no timeout.
+	Timeout *duration.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 // SetDefaults sets default values for configuration that might have been
 // omitted.
 func (c *SSHConfig) SetDefaults() {
-	if c.Port == "" {
-		c.Port = "22"
+	if c.Port == nil {
+		c.Port = ptr.To(22)
+	}
+
+	if c.Timeout == nil {
+		c.Timeout = &duration.Duration{Duration: 60 * time.Second}
 	}
 }
 

@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
+	"net/url"
 
 	"github.com/rs/zerolog"
 	"github.com/tvs/ultravisor/pkg/config"
 )
 
-func Load(ctx context.Context, c *config.Config, container string) error {
+func Load(ctx context.Context, container string) error {
 	l := zerolog.Ctx(ctx)
+	c := config.Ctx(ctx)
+
 	l.Debug().Interface("config", c).Msg("Beginning load")
 
 	if err := validateConfig(c); err != nil {
@@ -45,12 +47,25 @@ func validateSSHConfig(c *config.SSHConfig) error {
 		errs = append(errs, fmt.Errorf("server must be supplied"))
 	}
 
-	// TODO(tvs): URL parsing test
-	if _, err := strconv.Atoi(c.Port); err != nil {
-		errs = append(errs, fmt.Errorf("port must be a valid number: %w", err))
+	if _, err := url.Parse(c.Server); err != nil {
+		errs = append(errs, fmt.Errorf("unable to parse server: %w", err))
 	}
 
-	// TODO(tvs): Ensure one of Key, KeyPath, or Password are present
+	if c.Port == nil {
+		errs = append(errs, fmt.Errorf("port must be supplied"))
+	}
+
+	if c.User == "" {
+		errs = append(errs, fmt.Errorf("SSH user must be supplied"))
+	}
+
+	if c.Key == nil && c.KeyPath == nil && c.Password == nil {
+		errs = append(errs, fmt.Errorf("one of key, keyPath, or password must be supplied"))
+	}
+
+	if c.Timeout == nil {
+		errs = append(errs, fmt.Errorf("a timeout must be supplied"))
+	}
 
 	return errors.Join(errs...)
 }

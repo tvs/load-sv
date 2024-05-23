@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/tvs/ultravisor/pkg/config"
+	"github.com/tvs/ultravisor/pkg/config/configmanager"
 	"github.com/tvs/ultravisor/pkg/log"
 )
 
@@ -29,6 +30,22 @@ Ultravisor aims to make a number of difficult or tedious tasks simple.`,
 
 		l := configureLogger(cmd)
 		l.Debug().Str("profile", config.CurrentProfile().Name).Msg("Using profile")
+
+		cfg, err := configmanager.Load()
+		if err != nil {
+			l.Error().Err(err).Msg("Unable to load config")
+			SetExitCode(1)
+			return
+		}
+		cfg.SetDefaults()
+
+		l.Debug().Any("config", cfg).Msg("Saving config")
+		err = configmanager.Save(cfg)
+		if err != nil {
+			l.Error().Err(err).Msg("Unable to save config")
+			SetExitCode(1)
+			return
+		}
 	},
 }
 

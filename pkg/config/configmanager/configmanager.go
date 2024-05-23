@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/tvs/ultravisor/pkg/config"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func LoadFrom(f string) (*config.Config, error) {
