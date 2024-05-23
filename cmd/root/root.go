@@ -37,6 +37,8 @@ Ultravisor aims to make a number of difficult or tedious tasks simple.`,
 			SetExitCode(1)
 			return
 		}
+
+		// TODO: get copy so that defaults aren't written back when saving
 		cfg.SetDefaults()
 
 		l.Debug().Any("config", cfg).Msg("Saving config")
