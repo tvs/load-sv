@@ -2,12 +2,10 @@ module github.com/tvs/ultravisor
 
 go 1.21.9
 
-replace github.com/tvs/sshit => /Users/thall/workspace/tvs/sshit
-
 require (
 	github.com/rs/zerolog v1.32.0
 	github.com/spf13/cobra v1.8.0
-	github.com/tvs/sshit v0.0.0-20240530213158-505bbf6b7cb2
+	github.com/tvs/sshit v0.0.0-20240603192635-862e2715f988
 	github.com/vmware/govmomi v0.37.2
 	golang.org/x/crypto v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
