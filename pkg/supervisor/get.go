@@ -36,13 +36,43 @@ func Info(ctx context.Context) (*SupervisorInfo, error) {
 		return nil, err
 	}
 
-	vms, err := getSupervisorVMs(ctx, c)
+	var jumpbox *sshit.Client
+	if c.JumpboxConfig != nil {
+		cfg, err := c.JumpboxConfig.ClientConfig()
+		if err != nil {
+			return nil, err
+		}
+		jumpbox = &sshit.Client{
+			Config: cfg,
+			Server: sshit.Endpoint{
+				Host: c.JumpboxConfig.Host,
+				Port: *c.JumpboxConfig.Port,
+			},
+		}
+
+		if err := jumpbox.Connect(ctx); err != nil {
+			l.Error().Err(err).Msg("unable to initiate jumpbox connection")
+			return nil, fmt.Errorf("unable to initiate jumpbox connection: %w", err)
+		}
+
+		defer func() {
+			if tErr := jumpbox.Close(); tErr != nil {
+				l.Error().Err(tErr).Msg("unable to close jumpbox session")
+				if err == nil {
+					err = fmt.Errorf("unable to close jumpbox session: %w", tErr)
+				}
+			}
+			jumpbox.Close()
+		}()
+	}
+
+	vms, err := getSupervisorVMs(ctx, c, jumpbox)
 	if err != nil {
 		l.Error().Err(err).Msg("unable to retrieve Supervisor VMs")
 		return nil, fmt.Errorf("unable to retrieve Supervisor VMs: %w", err)
 	}
 
-	controlPlane, password, err := getSupervisorCredentials(ctx, c)
+	controlPlane, password, err := getSupervisorCredentials(ctx, c, jumpbox)
 	if err != nil {
 		l.Error().Err(err).Msg("unable to retrieve Supervisor credentials")
 		return nil, fmt.Errorf("unable to retrieve Supervisor credentials: %w", err)
@@ -105,44 +135,17 @@ func validateVCenterConfig(c *config.VCenterConfig) error {
 	return validateSSHConfig(c.SSH)
 }
 
-func getSupervisorVMs(ctx context.Context, c *config.Config) (_ []string, err error) {
+func getSupervisorVMs(ctx context.Context, c *config.Config, jumpbox *sshit.Client) (_ []string, err error) {
 	l := zerolog.Ctx(ctx)
 
 	// Start tunnel if we need it
 	var endpoint sshit.Endpoint
 	if c.JumpboxConfig != nil {
-		cfg, err := c.JumpboxConfig.ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-		ssh := &sshit.Client{
-			Config: cfg,
-			Server: sshit.Endpoint{
-				Host: c.JumpboxConfig.Host,
-				Port: *c.JumpboxConfig.Port,
-			},
-		}
-
-		if err := ssh.Connect(ctx); err != nil {
-			l.Error().Err(err).Msg("unable to initiate SSH connection")
-			return nil, fmt.Errorf("unable to initiate SSH connection: %w", err)
-		}
-
-		defer func() {
-			if tErr := ssh.Close(); tErr != nil {
-				l.Error().Err(tErr).Msg("unable to close SSH session")
-				if err == nil {
-					err = fmt.Errorf("unable to close SSH session: %w", tErr)
-				}
-			}
-			ssh.Close()
-		}()
-
 		tunnel := sshit.NewForwardTunnel(ctx,
 			sshit.Endpoint{Host: "localhost", Port: 0},
 			sshit.Endpoint{Host: c.VCenterConfig.SSH.Host, Port: 443})
 
-		if err = tunnel.Bind(ssh); err != nil {
+		if err = tunnel.Bind(jumpbox); err != nil {
 			l.Error().Err(err).Msg("unable to establish tunnel to vCenter")
 			return nil, fmt.Errorf("unable to establish tunnel to vCenter: %w", err)
 		}
@@ -266,45 +269,18 @@ func vcSession(endpoint sshit.Endpoint, username, password string) (*cache.Sessi
 	}, nil
 }
 
-func getSupervisorCredentials(ctx context.Context, c *config.Config) (controlPlane, password string, err error) {
+func getSupervisorCredentials(ctx context.Context, c *config.Config, jumpbox *sshit.Client) (controlPlane, password string, err error) {
 	l := zerolog.Ctx(ctx)
 
 	// TODO(tvs): Reuse jumpbox ssh client
 	// Start tunnel if we need it
 	var endpoint sshit.Endpoint
 	if c.JumpboxConfig != nil {
-		cfg, err := c.JumpboxConfig.ClientConfig()
-		if err != nil {
-			return "", "", err
-		}
-		ssh := &sshit.Client{
-			Config: cfg,
-			Server: sshit.Endpoint{
-				Host: c.JumpboxConfig.Host,
-				Port: *c.JumpboxConfig.Port,
-			},
-		}
-
-		if err := ssh.Connect(ctx); err != nil {
-			l.Error().Err(err).Msg("unable to initiate SSH connection")
-			return "", "", fmt.Errorf("unable to initiate SSH connection: %w", err)
-		}
-
-		defer func() {
-			if tErr := ssh.Close(); tErr != nil {
-				l.Error().Err(tErr).Msg("unable to close SSH session")
-				if err == nil {
-					err = fmt.Errorf("unable to close SSH session: %w", tErr)
-				}
-			}
-			ssh.Close()
-		}()
-
 		tunnel := sshit.NewForwardTunnel(ctx,
 			sshit.Endpoint{Host: "localhost", Port: 0},
 			sshit.Endpoint{Host: c.VCenterConfig.SSH.Host, Port: 22})
 
-		if err = tunnel.Bind(ssh); err != nil {
+		if err = tunnel.Bind(jumpbox); err != nil {
 			l.Error().Err(err).Msg("unable to establish tunnel to vCenter")
 			return "", "", fmt.Errorf("unable to establish tunnel to vCenter: %w", err)
 		}
