@@ -38,6 +38,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tvs/sshit v0.0.0-20240603192635-862e2715f988 h1:T0efMJymnSKKZBmfQ5sMLVUwhITfKvMHCsEBqRy7TWE=
 github.com/tvs/sshit v0.0.0-20240603192635-862e2715f988/go.mod h1:zseiLOLyMYCkCBQNUaQGtDUZy5VgqgcMM3SGDnB00aI=
+github.com/tvs/sshit v0.0.0-20240604051449-08ed8edae6b3 h1:0ndTf9RCViNk/Fd7qhVAQP+iD5EgdI4qAgigBRysTkQ=
+github.com/tvs/sshit v0.0.0-20240604051449-08ed8edae6b3/go.mod h1:zseiLOLyMYCkCBQNUaQGtDUZy5VgqgcMM3SGDnB00aI=
 github.com/vmware/govmomi v0.37.2 h1:5ANLoaTxWv600ZnoosJ2zXbM3A+EaxqGheEZbRN8YVE=
 github.com/vmware/govmomi v0.37.2/go.mod h1:mtGWtM+YhTADHlCgJBiskSRPOZRsN9MSjPzaZLte/oQ=
 golang.org/x/crypto v0.23.0 h1:dIJU/v2J8Mdglj/8rJ6UUOM3Zc9zLZxVZwwxMooUSAI=

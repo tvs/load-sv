@@ -5,7 +5,7 @@ go 1.21.9
 require (
 	github.com/rs/zerolog v1.32.0
 	github.com/spf13/cobra v1.8.0
-	github.com/tvs/sshit v0.0.0-20240603192635-862e2715f988
+	github.com/tvs/sshit v0.0.0-20240604051449-08ed8edae6b3
 	github.com/vmware/govmomi v0.37.2
 	golang.org/x/crypto v0.23.0
 	gopkg.in/yaml.v3 v3.0.1
