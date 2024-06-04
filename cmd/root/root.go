@@ -38,11 +38,14 @@ Ultravisor aims to make a number of difficult or tedious tasks simple.`,
 			return
 		}
 
-		// TODO: get copy so that defaults aren't written back when saving
-		cfg.SetDefaults()
+		cmd.SetContext(cfg.WithContext(cmd.Context()))
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		l := zerolog.Ctx(cmd.Context())
+		cfg := config.Ctx(cmd.Context())
 
 		l.Debug().Any("config", cfg).Msg("Saving config")
-		err = configmanager.Save(cfg)
+		err := configmanager.Save(cfg)
 		if err != nil {
 			l.Error().Err(err).Msg("Unable to save config")
 			SetExitCode(1)

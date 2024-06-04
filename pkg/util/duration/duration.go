@@ -26,6 +26,7 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
+
 	d.Duration = pd
 	return nil
 }
@@ -47,6 +48,7 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	if err != nil {
 		return err
 	}
+
 	d.Duration = pd
 	return nil
 }

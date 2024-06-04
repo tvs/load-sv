@@ -1,6 +1,8 @@
 package configmanager
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 
@@ -45,9 +47,23 @@ func Load() (*config.Config, error) {
 // TODO(tvs): Use an embedded template with comments explaining
 // the config and ensure that when we save we persist the comments
 func Save(c *config.Config) error {
-	b, err := yaml.Marshal(c)
+	var b bytes.Buffer
+	bw := bufio.NewWriter(&b)
+
+	e := yaml.NewEncoder(bw)
+	e.SetIndent(2)
+
+	err := e.Encode(c)
 	if err != nil {
 		return fmt.Errorf("unable to marshal config to yaml: %w", err)
+	}
+
+	if err := e.Close(); err != nil {
+		return fmt.Errorf("unable to close yaml encoder: %w", err)
+	}
+
+	if err := bw.Flush(); err != nil {
+		return fmt.Errorf("unable to flush buffered writer: %w", err)
 	}
 
 	f, err := config.File()
@@ -55,5 +71,5 @@ func Save(c *config.Config) error {
 		return fmt.Errorf("unable to retrieve file path for profile: %w", err)
 	}
 
-	return os.WriteFile(f, b, 0644)
+	return os.WriteFile(f, b.Bytes(), 0644)
 }

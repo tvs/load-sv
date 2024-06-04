@@ -1,10 +1,13 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"time"
 
+	"golang.org/x/crypto/ssh"
+
 	"github.com/tvs/ultravisor/pkg/util/duration"
-	"github.com/tvs/ultravisor/pkg/util/ptr"
 )
 
 var profile = Profile{Name: "default"}
@@ -33,17 +36,7 @@ type Config struct {
 	JumpboxConfig *SSHConfig `json:"jumpbox,omitempty" yaml:"jumpbox,omitempty"`
 	// VCenterConfig represents a required set of configuration for accessing
 	// the vCenter server.
-	VCenterConfig VCenterConfig `json:"vcenter,omitempty" yaml:"vcenter,omitempty"`
-}
-
-// SetDefaults sets default values for configuration that might have been
-// omitted.
-func (c *Config) SetDefaults() {
-	if c.JumpboxConfig != nil {
-		c.JumpboxConfig.SetDefaults()
-	}
-
-	c.VCenterConfig.SetDefaults()
+	VCenterConfig *VCenterConfig `json:"vcenter,omitempty" yaml:"vcenter,omitempty"`
 }
 
 // SSHConfig represents the configuration needed to SSH to a server. Each
@@ -52,8 +45,8 @@ func (c *Config) SetDefaults() {
 type SSHConfig struct {
 	// User is the username for the SSH connection.
 	User string `json:"user,omitempty" yaml:"user,omitempty"`
-	// Server is the address of the server to SSH to.
-	Server string `json:"server,omitempty" yaml:"server,omitempty"`
+	// Host is the address of the server to SSH to.
+	Host string `json:"host,omitempty" yaml:"host,omitempty"`
 	// Port is the port to utilize when SSHing. Defaults to 22.
 	Port *int `json:"port,omitempty" yaml:"port,omitempty"`
 	// Key takes an optional encrypted private key.
@@ -67,16 +60,64 @@ type SSHConfig struct {
 	Timeout *duration.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
-// SetDefaults sets default values for configuration that might have been
-// omitted.
-func (c *SSHConfig) SetDefaults() {
-	if c.Port == nil {
-		c.Port = ptr.To(22)
+// ClientConfig creates an SSH ClientConfig for use when establishing SSH
+// connections or tunnels
+func (c *SSHConfig) ClientConfig() (*ssh.ClientConfig, error) {
+	auth, err := c.auth()
+	if err != nil {
+		return nil, err
 	}
 
+	var timeout time.Duration
 	if c.Timeout == nil {
-		c.Timeout = &duration.Duration{Duration: 60 * time.Second}
+		timeout = 60 * time.Second
+	} else {
+		timeout = c.Timeout.Duration
 	}
+
+	return &ssh.ClientConfig{
+		User: c.User,
+		Auth: []ssh.AuthMethod{auth},
+		// TODO(tvs): Establish trusts and use this as a fallback option...
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         timeout,
+	}, nil
+}
+
+// Address returns a string containing the host and port for an SSH connection.
+func (c *SSHConfig) Address() string {
+	port := 22
+	if c.Port != nil {
+		port = *c.Port
+	}
+
+	return fmt.Sprintf("%s:%d", c.Host, port)
+}
+
+func (c *SSHConfig) auth() (ssh.AuthMethod, error) {
+	if c.Password != nil {
+		return ssh.Password(*c.Password), nil
+	}
+
+	var key []byte
+	if c.KeyPath != nil {
+		var err error
+		key, err = os.ReadFile(*c.KeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to retrieve key file: %w", err)
+		}
+	}
+
+	if c.Key != nil {
+		key = []byte(*c.Key)
+	}
+
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse private key: %w", err)
+	}
+
+	return ssh.PublicKeys(signer), nil
 }
 
 // VCenterConfig represents the data needed to access the vCenter Server and/or
@@ -84,15 +125,18 @@ func (c *SSHConfig) SetDefaults() {
 // configuration and thus must perform validation within the context of that
 // command.
 type VCenterConfig struct {
-	SSHConfig
-	// SSOUser is the username used to access the vCenter APIs.
-	SSOUser string `json:"ssoUser,omitempty" yaml:"ssoUser,omitempty"`
-	// SSOPassword is the password used to access the vCenter APIs.
-	SSOPassword string `json:"ssoPassword,omitempty" yaml:"ssoPassword,omitempty"`
+	SSH *SSHConfig `json:"ssh,omitempty" yaml:"ssh,omitempty"`
+	SSO *SSOConfig `json:"sso,omitempty" yaml:"sso,omitempty"`
 }
 
-// SetDefaults sets default values for configuration that might have been
-// omitted.
-func (c *VCenterConfig) SetDefaults() {
-	c.SSHConfig.SetDefaults()
+// SSOConfig represents the data needed to access the vCenter Server's APIs.
+// Each command may only utilize or require a subset of this configuration and
+// thus must perform validation within the context of that command.
+type SSOConfig struct {
+	// User is the username used to access the vCenter APIs.
+	User string `json:"user,omitempty" yaml:"user,omitempty"`
+	// Password is the password used to access the vCenter APIs.
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+
+	// TODO(tvs): Should the host and port be separately configurable from SSH?
 }

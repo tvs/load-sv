@@ -17,6 +17,5 @@ func Ctx(ctx context.Context) *Config {
 	}
 
 	c := &Config{}
-	c.SetDefaults()
 	return c
 }
