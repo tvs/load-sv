@@ -17,6 +17,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/tvs/ultravisor/pkg/config"
+	"github.com/tvs/ultravisor/pkg/util/jumpbox"
 )
 
 type SupervisorInfo struct {
@@ -26,6 +27,27 @@ type SupervisorInfo struct {
 }
 
 func Info(ctx context.Context) (*SupervisorInfo, error) {
+	c := config.Ctx(ctx)
+
+	var j *sshit.Client
+	if c.JumpboxConfig != nil {
+		var (
+			cleanup func()
+			err     error
+		)
+
+		j, cleanup, err = jumpbox.JumpboxClient(ctx, c.JumpboxConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		defer cleanup()
+	}
+
+	return InfoWithJumpbox(ctx, j)
+}
+
+func InfoWithJumpbox(ctx context.Context, jumpbox *sshit.Client) (*SupervisorInfo, error) {
 	l := zerolog.Ctx(ctx)
 	c := config.Ctx(ctx)
 
@@ -34,36 +56,6 @@ func Info(ctx context.Context) (*SupervisorInfo, error) {
 	if err := ValidateConfig(c); err != nil {
 		l.Error().Err(err).Any("config", c).Msg("invalid config")
 		return nil, err
-	}
-
-	var jumpbox *sshit.Client
-	if c.JumpboxConfig != nil {
-		cfg, err := c.JumpboxConfig.ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-		jumpbox = &sshit.Client{
-			Config: cfg,
-			Server: sshit.Endpoint{
-				Host: c.JumpboxConfig.Host,
-				Port: *c.JumpboxConfig.Port,
-			},
-		}
-
-		if err := jumpbox.Connect(ctx); err != nil {
-			l.Error().Err(err).Msg("unable to initiate jumpbox connection")
-			return nil, fmt.Errorf("unable to initiate jumpbox connection: %w", err)
-		}
-
-		defer func() {
-			if tErr := jumpbox.Close(); tErr != nil {
-				l.Error().Err(tErr).Msg("unable to close jumpbox session")
-				if err == nil {
-					err = fmt.Errorf("unable to close jumpbox session: %w", tErr)
-				}
-			}
-			jumpbox.Close()
-		}()
 	}
 
 	vms, err := getSupervisorVMs(ctx, c, jumpbox)

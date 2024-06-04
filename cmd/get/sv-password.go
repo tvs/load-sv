@@ -1,6 +1,8 @@
 package get
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -46,12 +48,24 @@ var getSupervisorCmd = &cobra.Command{
 			info.VMs = []string{}
 		}
 
-		b, err := json.MarshalIndent(info, "", "  ")
+		// TODO(tvs): Extract this; the pattern will be useful for all commands
+		var b bytes.Buffer
+		bw := bufio.NewWriter(&b)
+
+		e := json.NewEncoder(bw)
+		e.SetIndent("", "  ")
+		e.SetEscapeHTML(false)
+
+		err = e.Encode(info)
 		if err != nil {
 			l.Error().Err(err).Msg("unable to marshal supervisor info into json")
 		}
 
-		fmt.Println(string(b))
+		if err = bw.Flush(); err != nil {
+			l.Error().Err(err).Msg("unable to flush buffered writer")
+		}
+
+		fmt.Println(string(b.Bytes()))
 	},
 }
 
